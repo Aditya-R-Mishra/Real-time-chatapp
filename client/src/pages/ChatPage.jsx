@@ -188,7 +188,7 @@ export default function ChatPage() {
       setActiveRoom(newRoom);
     } catch (err) {
       console.error('Failed to create room:', err);
-      alert(err.response?.data?.message || 'Failed to create room');
+      alert(err.response?.data?.error || err.response?.data?.message || 'Failed to create room');
     }
   }, []);
 
@@ -204,7 +204,7 @@ export default function ChatPage() {
       setActiveRoom(dmRoom);
     } catch (err) {
       console.error('Failed to create DM:', err);
-      alert(err.response?.data?.message || 'Failed to create DM');
+      alert(err.response?.data?.error || err.response?.data?.message || 'Failed to create DM');
     }
   }, []);
 

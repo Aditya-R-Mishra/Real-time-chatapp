@@ -47,7 +47,7 @@ export default function RegisterForm({ onSwitchToLogin }) {
       await register(username, email, password);
       // AuthContext sets user → redirect to chat
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+      setError(err.response?.data?.error || err.response?.data?.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }

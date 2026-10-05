@@ -33,7 +33,7 @@ export default function LoginForm({ onSwitchToRegister }) {
       await login(email, password);
       // AuthContext sets the user → App.jsx redirects to ChatPage
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please try again.');
+      setError(err.response?.data?.error || err.response?.data?.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
