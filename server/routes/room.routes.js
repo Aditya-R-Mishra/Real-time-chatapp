@@ -18,6 +18,7 @@ router.use(authMiddleware);
 
 // ↓ These specific routes MUST come before /:id routes
 router.post('/dm', roomCtrl.createOrGetDM);           // POST /api/rooms/dm
+router.post('/group', roomCtrl.createGroup);         // POST /api/rooms/group
 router.get('/users', roomCtrl.listUsers);              // GET /api/rooms/users
 
 // Room CRUD

@@ -33,6 +33,10 @@ export default defineConfig({
         ws: true,        // Enable WebSocket proxying
         changeOrigin: true,
       },
+      '/uploads': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
     },
   },
 })

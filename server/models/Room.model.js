@@ -29,21 +29,28 @@ const roomSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    unique: true,
     trim: true,
   },
   description: {
     type: String,
     default: '',
   },
+  avatar: {
+    type: String,
+    default: '',
+  },
   // Array of User ObjectIds — who is a member of this room
   members: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',    // ← This tells Mongoose "these IDs refer to User documents"
+    ref: 'User',
   }],
   isPrivate: {
     type: Boolean,
-    default: false,   // Public rooms are default; DMs are private
+    default: false,
+  },
+  isGroup: {
+    type: Boolean,
+    default: false,
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

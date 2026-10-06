@@ -106,8 +106,28 @@ export default function MessageBubble({ message, onReact, onReply }) {
           {/* File attachment */}
           {message.fileUrl && (
             <div className="message-attachment">
-              {message.fileType?.startsWith('image/') ? (
-                <img src={message.fileUrl} alt="Attachment" className="message-image" loading="lazy" />
+              {message.fileType?.startsWith('image/') || message.type === 'image' ? (
+                <img
+                  src={message.fileUrl}
+                  alt={message.fileName || 'Photo attachment'}
+                  className="message-image"
+                  loading="lazy"
+                  onClick={() => window.open(message.fileUrl, '_blank')}
+                  title="Click to view full photo"
+                />
+              ) : message.fileType?.startsWith('video/') || message.type === 'video' ? (
+                <div className="message-video-container">
+                  <video
+                    controls
+                    className="message-video"
+                    preload="metadata"
+                    playsInline
+                  >
+                    <source src={message.fileUrl} type={message.fileType || 'video/mp4'} />
+                    Your browser does not support the video tag.
+                  </video>
+                  {message.fileName && <span className="attachment-filename">{message.fileName}</span>}
+                </div>
               ) : (
                 <a href={message.fileUrl} target="_blank" rel="noopener noreferrer" className="message-file-link">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">

@@ -49,15 +49,28 @@ const messageSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
-  // The actual message text (or a Cloudinary URL for images/files)
+  // The actual message text (or optional if sending an attachment)
   content: {
     type: String,
-    required: true,
+    default: '',
+  },
+  // Attachment fields
+  fileUrl: {
+    type: String,
+    default: '',
+  },
+  fileType: {
+    type: String,
+    default: '',
+  },
+  fileName: {
+    type: String,
+    default: '',
   },
   // What kind of message is this?
   type: {
     type: String,
-    enum: ['text', 'image', 'file'],
+    enum: ['text', 'image', 'video', 'file'],
     default: 'text',
   },
   // Array of user IDs who have "read" this message

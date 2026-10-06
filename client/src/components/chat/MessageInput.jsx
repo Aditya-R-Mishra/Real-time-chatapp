@@ -1,18 +1,7 @@
 /**
  * MESSAGE INPUT COMPONENT
  * =======================
- * Text input with send button, file upload, and typing indicator emission.
- * 
- * TYPING INDICATOR LOGIC:
- * We emit "typing" events to the socket, but we DEBOUNCE them:
- * - Start typing → emit "typing" (true)
- * - Stop typing for 2 seconds → emit "typing" (false)
- * This prevents flooding the socket with events on every keystroke.
- * 
- * FILE UPLOAD:
- * Uses a hidden <input type="file"> triggered by a button click.
- * Files are uploaded to Cloudinary via the /api/upload endpoint,
- * then the CDN URL is sent as part of the message.
+ * Text input with send button, photo/video/file attachments, typing indicator.
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -23,6 +12,7 @@ export default function MessageInput({ roomId, replyTo, onCancelReply }) {
   const { emit } = useSocket();
   const [content, setContent] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState(null);
   const inputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const isTypingRef = useRef(false);
@@ -34,8 +24,6 @@ export default function MessageInput({ roomId, replyTo, onCancelReply }) {
 
   /**
    * TYPING INDICATOR — Debounced
-   * On keystroke: emit typing=true, set a 2s timeout to emit typing=false
-   * Each new keystroke resets the timeout
    */
   const handleTyping = useCallback(() => {
     if (!isTypingRef.current) {
@@ -43,7 +31,6 @@ export default function MessageInput({ roomId, replyTo, onCancelReply }) {
       emit('typing', { roomId, isTyping: true });
     }
 
-    // Reset the "stop typing" timer
     clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       isTypingRef.current = false;
@@ -63,25 +50,31 @@ export default function MessageInput({ roomId, replyTo, onCancelReply }) {
 
   /**
    * SEND MESSAGE
-   * Emits a socket event (not an HTTP request!) for real-time delivery.
    */
   const handleSend = (e) => {
     e.preventDefault();
     const trimmed = content.trim();
-    if (!trimmed && !uploading) return;
+    if (!trimmed && !pendingAttachment) return;
 
     const messageData = {
       roomId,
       content: trimmed,
     };
 
-    // If replying to a message, include the parent ID
+    if (pendingAttachment) {
+      messageData.fileUrl = pendingAttachment.url;
+      messageData.fileType = pendingAttachment.mimetype || pendingAttachment.type;
+      messageData.fileName = pendingAttachment.filename;
+      messageData.type = pendingAttachment.type;
+    }
+
     if (replyTo) {
       messageData.parentMessageId = replyTo._id;
     }
 
     emit('send_message', messageData);
     setContent('');
+    setPendingAttachment(null);
     onCancelReply && onCancelReply();
 
     // Stop typing indicator
@@ -93,17 +86,15 @@ export default function MessageInput({ roomId, replyTo, onCancelReply }) {
   };
 
   /**
-   * FILE UPLOAD
-   * 1. Upload file to Cloudinary via our API
-   * 2. Send a message with the file URL
+   * FILE / PHOTO / VIDEO UPLOAD
    */
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 10MB limit
-    if (file.size > 10 * 1024 * 1024) {
-      alert('File size must be under 10MB');
+    // 50MB limit
+    if (file.size > 50 * 1024 * 1024) {
+      alert('File size must be under 50MB');
       return;
     }
 
@@ -116,22 +107,22 @@ export default function MessageInput({ roomId, replyTo, onCancelReply }) {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      // Send the file as a message
-      emit('send_message', {
-        roomId,
-        content: '',
-        fileUrl: data.url,
-        fileType: file.type,
-        fileName: file.name,
+      setPendingAttachment({
+        url: data.url,
+        type: data.type, // 'image' | 'video' | 'file'
+        filename: data.filename || file.name,
+        mimetype: file.type,
       });
     } catch (err) {
       console.error('Upload failed:', err);
-      alert('File upload failed. Please try again.');
+      alert(err.response?.data?.error || 'File upload failed. Please try again.');
     } finally {
       setUploading(false);
-      e.target.value = ''; // Reset file input
+      e.target.value = '';
     }
   };
+
+  const isSendDisabled = (!content.trim() && !pendingAttachment) || uploading;
 
   return (
     <div className="message-input-container">
@@ -153,21 +144,46 @@ export default function MessageInput({ roomId, replyTo, onCancelReply }) {
         </div>
       )}
 
+      {/* Pending Attachment preview */}
+      {pendingAttachment && (
+        <div className="attachment-preview-bar">
+          <div className="attachment-preview-info">
+            {pendingAttachment.type === 'image' && (
+              <img src={pendingAttachment.url} alt="Preview" className="preview-thumb" />
+            )}
+            {pendingAttachment.type === 'video' && (
+              <div className="preview-video-badge">🎥 Video</div>
+            )}
+            {pendingAttachment.type === 'file' && (
+              <div className="preview-file-badge">📄 File</div>
+            )}
+            <span className="preview-name">{pendingAttachment.filename}</span>
+          </div>
+          <button
+            className="attachment-remove-btn"
+            onClick={() => setPendingAttachment(null)}
+            title="Remove attachment"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <form onSubmit={handleSend} className="message-input-form" id="message-form">
-        {/* File upload button */}
-        <label className="file-upload-btn" title="Attach file">
+        {/* Photo & Video / File upload button */}
+        <label className="file-upload-btn" title="Send Photo, Video or Document">
           <input
             type="file"
             onChange={handleFileUpload}
             disabled={uploading}
             hidden
-            accept="image/*,.pdf,.doc,.docx,.txt,.zip"
+            accept="image/*,video/*,.pdf,.doc,.docx,.txt,.zip"
           />
           {uploading ? (
             <span className="spinner spinner-sm" />
           ) : (
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10 3a1 1 0 011 1v4h4a1 1 0 110 2h-4v4a1 1 0 11-2 0v-4H5a1 1 0 110-2h4V4a1 1 0 011-1z" />
+              <path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-5 2.5 3L14 9l2 6z"/>
             </svg>
           )}
         </label>
@@ -177,7 +193,7 @@ export default function MessageInput({ roomId, replyTo, onCancelReply }) {
           ref={inputRef}
           type="text"
           className="message-text-input"
-          placeholder="Type a message..."
+          placeholder={pendingAttachment ? "Add a caption..." : "Type a message..."}
           value={content}
           onChange={(e) => {
             setContent(e.target.value);
@@ -191,7 +207,7 @@ export default function MessageInput({ roomId, replyTo, onCancelReply }) {
         <button
           type="submit"
           className="send-btn"
-          disabled={!content.trim() && !uploading}
+          disabled={isSendDisabled}
           id="send-button"
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">

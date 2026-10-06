@@ -121,17 +121,28 @@ function initSocket(httpServer) {
 
     // ─── SEND MESSAGE ─────────────────────────────────────
     // This is the core of the chat app!
-    socket.on('send_message', async ({ roomId, content, type = 'text', parentMessageId = null }) => {
-      // Validate
-      if (!content?.trim()) return;
+    socket.on('send_message', async ({ roomId, content, type = 'text', parentMessageId = null, fileUrl = '', fileType = '', fileName = '' }) => {
+      // Validate: must have text content or a file attachment
+      if (!content?.trim() && !fileUrl) return;
+
+      const msgType = fileUrl
+        ? (fileType?.startsWith('image/')
+            ? 'image'
+            : fileType?.startsWith('video/')
+            ? 'video'
+            : 'file')
+        : type;
 
       // Save message to MongoDB (persistence!)
       const message = await Message.create({
         roomId,
-        content: content.trim(),
-        type,
+        content: content?.trim() || '',
+        type: msgType,
         senderId: userId,
         parentMessageId,
+        fileUrl,
+        fileType,
+        fileName,
       });
 
       // Populate sender info and parent message (for replies)

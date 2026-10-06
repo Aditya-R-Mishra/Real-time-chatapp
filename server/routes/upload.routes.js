@@ -1,15 +1,7 @@
 /**
  * UPLOAD ROUTES
  * ==============
- * Handles file upload to Cloudinary.
- * 
- * The flow:
- * 1. Client sends a multipart/form-data request with a file field
- * 2. authMiddleware verifies the user is logged in
- * 3. upload.single('file') tells Multer to expect ONE file in the 'file' field
- * 4. Multer streams the file to Cloudinary
- * 5. req.file is populated with the Cloudinary response (URL, etc.)
- * 6. We return the URL so the client can send it as a message
+ * Handles photo, video, and file uploads.
  */
 
 const router = require('express').Router();
@@ -21,10 +13,26 @@ router.post('/', authMiddleware, upload.single('file'), (req, res) => {
     return res.status(400).json({ error: 'No file uploaded' });
   }
 
+  // Determine URL: if Cloudinary, req.file.path starts with http. Otherwise local path /uploads/filename
+  let fileUrl = req.file.path;
+  if (!fileUrl.startsWith('http')) {
+    fileUrl = `/uploads/${req.file.filename}`;
+  }
+
+  const mime = req.file.mimetype || '';
+  let fileType = 'file';
+  if (mime.startsWith('image/')) {
+    fileType = 'image';
+  } else if (mime.startsWith('video/')) {
+    fileType = 'video';
+  }
+
   res.json({
-    url: req.file.path,         // Cloudinary CDN URL
-    type: req.file.mimetype.startsWith('image/') ? 'image' : 'file',
+    url: fileUrl,
+    type: fileType,
     filename: req.file.originalname,
+    mimetype: mime,
+    size: req.file.size,
   });
 });
 

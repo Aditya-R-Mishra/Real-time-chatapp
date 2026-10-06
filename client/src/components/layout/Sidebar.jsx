@@ -1,56 +1,56 @@
 /**
  * SIDEBAR COMPONENT
  * =================
- * The left panel of the chat app showing:
- * 1. User info header
- * 2. Room list (public channels)
- * 3. DM list (private conversations)
- * 4. Create room button
- * 5. Search
- * 
- * WHY SIDEBAR?
- * Every modern chat app (Slack, Discord, WhatsApp) has a sidebar
- * for navigation. It's the primary way to switch between conversations.
+ * Left navigation panel for Channels, Groups, Direct Messages, and Friends.
  */
 
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
+import ThemeToggle from './ThemeToggle';
 
 export default function Sidebar({
   rooms,
   activeRoomId,
   onSelectRoom,
   onCreateRoom,
-  onCreateDM,
-  users,
+  onOpenFriendsModal,
+  onOpenCreateGroupModal,
+  pendingRequestsCount = 0,
 }) {
   const { user, logout } = useAuth();
   const { isConnected } = useSocket();
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showDMModal, setShowDMModal] = useState(false);
+  const [showCreateChannelModal, setShowCreateChannelModal] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Separate rooms and DMs
-  const publicRooms = rooms.filter((r) => !r.isPrivate);
-  const dmRooms = rooms.filter((r) => r.isPrivate);
+  // Categorize rooms
+  const publicChannels = rooms.filter((r) => !r.isPrivate && !r.isGroup);
+  const groupRooms = rooms.filter((r) => r.isGroup);
+  const dmRooms = rooms.filter((r) => r.isPrivate && !r.isGroup);
 
-  // Filter rooms by search
-  const filteredPublic = publicRooms.filter((r) =>
+  // Filter by search
+  const filteredChannels = publicChannels.filter((r) =>
     r.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  const filteredGroups = groupRooms.filter((r) =>
+    r.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  const filteredDMs = dmRooms.filter((r) => {
+    const otherUser = r.members?.find((m) => (m._id || m) !== user?._id);
+    const displayName = otherUser?.username || r.name;
+    return displayName.toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
-  const handleCreateRoom = (e) => {
+  const handleCreateChannel = (e) => {
     e.preventDefault();
     if (newRoomName.trim()) {
       onCreateRoom(newRoomName.trim());
       setNewRoomName('');
-      setShowCreateModal(false);
+      setShowCreateChannelModal(false);
     }
   };
 
-  // Get avatar initial and color
   const initial = user?.username?.charAt(0).toUpperCase() || '?';
   const avatarColor = user?.username
     ? `hsl(${user.username.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360}, 70%, 60%)`
@@ -76,10 +76,28 @@ export default function Sidebar({
             </span>
           </div>
         </div>
-        <button className="sidebar-logout" onClick={logout} title="Logout" id="logout-btn">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
-            <path d="M6 15H3a1 1 0 01-1-1V4a1 1 0 011-1h3m4 10l4-4m0 0l-4-4m4 4H7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-          </svg>
+        <div className="sidebar-header-actions">
+          <ThemeToggle />
+          <button className="sidebar-logout" onClick={logout} title="Logout" id="logout-btn">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
+              <path d="M6 15H3a1 1 0 01-1-1V4a1 1 0 011-1h3m4 10l4-4m0 0l-4-4m4 4H7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Friends & Connections Quick Action Bar */}
+      <div className="sidebar-quick-actions">
+        <button
+          className="sidebar-action-pill"
+          onClick={onOpenFriendsModal}
+          title="Manage Friends and Friend Requests"
+        >
+          <span className="action-pill-icon">👥</span>
+          <span className="action-pill-text">Friends & Requests</span>
+          {pendingRequestsCount > 0 && (
+            <span className="action-pill-badge">{pendingRequestsCount}</span>
+          )}
         </button>
       </div>
 
@@ -90,7 +108,7 @@ export default function Sidebar({
         </svg>
         <input
           type="text"
-          placeholder="Search rooms..."
+          placeholder="Search chats..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="sidebar-search-input"
@@ -98,13 +116,13 @@ export default function Sidebar({
         />
       </div>
 
-      {/* Channels section */}
+      {/* SECTION 1: PUBLIC CHANNELS */}
       <div className="sidebar-section">
         <div className="sidebar-section-header">
           <span>Channels</span>
           <button
             className="sidebar-add-btn"
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => setShowCreateChannelModal(true)}
             title="Create channel"
             id="create-room-btn"
           >
@@ -113,7 +131,7 @@ export default function Sidebar({
         </div>
 
         <div className="sidebar-room-list">
-          {filteredPublic.map((room) => (
+          {filteredChannels.map((room) => (
             <button
               key={room._id}
               className={`sidebar-room-item ${room._id === activeRoomId ? 'active' : ''}`}
@@ -125,22 +143,57 @@ export default function Sidebar({
             </button>
           ))}
 
-          {filteredPublic.length === 0 && (
+          {filteredChannels.length === 0 && (
             <div className="sidebar-empty">
-              {searchQuery ? 'No rooms found' : 'No channels yet'}
+              {searchQuery ? 'No channels found' : 'No public channels'}
             </div>
           )}
         </div>
       </div>
 
-      {/* DMs section */}
+      {/* SECTION 2: MULTI-USER GROUPS */}
+      <div className="sidebar-section">
+        <div className="sidebar-section-header">
+          <span>Groups ({groupRooms.length})</span>
+          <button
+            className="sidebar-add-btn"
+            onClick={onOpenCreateGroupModal}
+            title="Create new group"
+            id="create-group-btn"
+          >
+            +
+          </button>
+        </div>
+
+        <div className="sidebar-room-list">
+          {filteredGroups.map((room) => (
+            <button
+              key={room._id}
+              className={`sidebar-room-item ${room._id === activeRoomId ? 'active' : ''}`}
+              onClick={() => onSelectRoom(room)}
+            >
+              <span className="room-group-icon">👥</span>
+              <span className="room-name">{room.name}</span>
+              <span className="room-member-badge">{room.members?.length || 0}</span>
+            </button>
+          ))}
+
+          {filteredGroups.length === 0 && (
+            <div className="sidebar-empty">
+              {searchQuery ? 'No groups found' : 'No groups yet. Click + to create'}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* SECTION 3: DIRECT MESSAGES (FRIENDS ONLY) */}
       <div className="sidebar-section">
         <div className="sidebar-section-header">
           <span>Direct Messages</span>
           <button
             className="sidebar-add-btn"
-            onClick={() => setShowDMModal(true)}
-            title="New DM"
+            onClick={onOpenFriendsModal}
+            title="Start conversation with friend"
             id="create-dm-btn"
           >
             +
@@ -148,10 +201,10 @@ export default function Sidebar({
         </div>
 
         <div className="sidebar-room-list">
-          {dmRooms.map((room) => {
-            // For DMs, show the other user's name (not your own)
+          {filteredDMs.map((room) => {
             const otherUser = room.members?.find((m) => (m._id || m) !== user?._id);
             const displayName = otherUser?.username || room.name;
+            const isOtherOnline = otherUser?.status === 'online';
 
             return (
               <button
@@ -159,30 +212,32 @@ export default function Sidebar({
                 className={`sidebar-room-item ${room._id === activeRoomId ? 'active' : ''}`}
                 onClick={() => onSelectRoom(room)}
               >
-                <span className="room-dm-icon">●</span>
+                <span className={`room-dm-dot ${isOtherOnline ? 'online' : 'offline'}`}>●</span>
                 <span className="room-name">{displayName}</span>
               </button>
             );
           })}
 
-          {dmRooms.length === 0 && (
-            <div className="sidebar-empty">No conversations yet</div>
+          {filteredDMs.length === 0 && (
+            <div className="sidebar-empty">
+              {searchQuery ? 'No conversations found' : 'No conversations. Click + to message a friend'}
+            </div>
           )}
         </div>
       </div>
 
-      {/* Create Room Modal */}
-      {showCreateModal && (
-        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+      {/* Create Channel Modal */}
+      {showCreateChannelModal && (
+        <div className="modal-overlay" onClick={() => setShowCreateChannelModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2>Create Channel</h2>
-            <form onSubmit={handleCreateRoom}>
+            <form onSubmit={handleCreateChannel}>
               <div className="form-group">
                 <label htmlFor="new-room-name">Channel name</label>
                 <input
                   id="new-room-name"
                   type="text"
-                  placeholder="e.g. general"
+                  placeholder="e.g. general, announcements"
                   value={newRoomName}
                   onChange={(e) => setNewRoomName(e.target.value)}
                   autoFocus
@@ -190,56 +245,14 @@ export default function Sidebar({
                 />
               </div>
               <div className="modal-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowCreateModal(false)}>
+                <button type="button" className="btn-secondary" onClick={() => setShowCreateChannelModal(false)}>
                   Cancel
                 </button>
                 <button type="submit" className="btn-primary" id="confirm-create-room">
-                  Create
+                  Create Channel
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* DM User Modal */}
-      {showDMModal && (
-        <div className="modal-overlay" onClick={() => setShowDMModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Start a Conversation</h2>
-            <div className="dm-user-list">
-              {users
-                .filter((u) => u._id !== user?._id)
-                .map((u) => (
-                  <button
-                    key={u._id}
-                    className="dm-user-item"
-                    onClick={() => {
-                      onCreateDM(u._id);
-                      setShowDMModal(false);
-                    }}
-                  >
-                    <div
-                      className="dm-user-avatar"
-                      style={{
-                        backgroundColor: `hsl(${u.username.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360}, 70%, 60%)`,
-                      }}
-                    >
-                      {u.username.charAt(0).toUpperCase()}
-                    </div>
-                    <span>{u.username}</span>
-                  </button>
-                ))}
-
-              {users.filter((u) => u._id !== user?._id).length === 0 && (
-                <div className="sidebar-empty">No users available</div>
-              )}
-            </div>
-            <div className="modal-actions">
-              <button type="button" className="btn-secondary" onClick={() => setShowDMModal(false)}>
-                Cancel
-              </button>
-            </div>
           </div>
         </div>
       )}

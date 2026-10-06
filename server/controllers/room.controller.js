@@ -179,6 +179,15 @@ exports.createOrGetDM = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Check if users are friends
+    const currentUser = await User.findById(currentUserId);
+    const isFriend = currentUser.friends?.some((id) => id.toString() === targetUserId);
+    if (!isFriend) {
+      return res.status(403).json({
+        error: 'You can only message users who are your friends. Please send a friend request first!',
+      });
+    }
+
     // Deterministic name — sort IDs so A→B and B→A produce the same room
     const dmName = [currentUserId, targetUserId].sort().join('_');
 
@@ -188,6 +197,7 @@ exports.createOrGetDM = async (req, res) => {
       room = await Room.create({
         name: dmName,
         isPrivate: true,
+        isGroup: false,
         members: [currentUserId, targetUserId],
         createdBy: currentUserId,
       });
@@ -196,6 +206,45 @@ exports.createOrGetDM = async (req, res) => {
     // Populate member details for the response
     await room.populate('members', 'username avatar status');
     res.json(room);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * CREATE GROUP — Create a group with multiple users
+ * POST /api/rooms/group
+ * Body: { name, description, memberIds }
+ */
+exports.createGroup = async (req, res) => {
+  try {
+    const { name, description, memberIds = [] } = req.body;
+    if (!name?.trim()) {
+      return res.status(400).json({ error: 'Group name is required' });
+    }
+
+    const currentUserId = req.user._id.toString();
+    const members = Array.from(new Set([currentUserId, ...memberIds]));
+
+    const room = await Room.create({
+      name: name.trim(),
+      description: description || '',
+      isPrivate: true,
+      isGroup: true,
+      members,
+      createdBy: currentUserId,
+    });
+
+    const populated = await Room.findById(room._id)
+      .populate('members', 'username avatar status')
+      .populate('createdBy', 'username');
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('room_created', populated);
+    }
+
+    res.status(201).json(populated);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

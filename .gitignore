@@ -14,10 +14,13 @@ client/dist/
 
 # env files
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+**/.env
+**/.env.*
+
+# Local uploaded media
+server/public/uploads/*
+!server/public/uploads/.gitkeep
 
 # misc
 .DS_Store

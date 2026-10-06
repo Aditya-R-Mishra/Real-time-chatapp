@@ -1,22 +1,8 @@
 /**
  * CHAT PAGE
  * =========
- * The main page after login — the entire chat interface.
- * 
- * THIS IS THE ORCHESTRATOR — it:
- * 1. Fetches rooms from the API
- * 2. Manages the active room state
- * 3. Listens for socket events (new messages, typing, etc.)
- * 4. Passes data down to Sidebar and ChatWindow
- * 
- * DATA FLOW:
- * ChatPage (state) → Sidebar (room list)
- *                  → ChatWindow (messages, input)
- *                    → MessageList (display)
- *                    → MessageInput (send)
- * 
- * Socket events flow UP (from server) and DOWN (to children):
- * Server → ChatPage (on 'new_message') → updates messages state → MessageList re-renders
+ * The main orchestrator of the chat application.
+ * Manages rooms, active conversations, real-time events, friends, and groups.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -26,6 +12,8 @@ import { useAuth } from '../context/AuthContext';
 import { requestNotificationPermission, notifyNewMessage } from '../utils/notifications';
 import Sidebar from '../components/layout/Sidebar';
 import ChatWindow from '../components/layout/ChatWindow';
+import FriendsModal from '../components/chat/FriendsModal';
+import CreateGroupModal from '../components/chat/CreateGroupModal';
 
 export default function ChatPage() {
   const { user } = useAuth();
@@ -39,45 +27,54 @@ export default function ChatPage() {
   const [replyTo, setReplyTo] = useState(null);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [users, setUsers] = useState([]);
+
+  // Modals & Friend State
+  const [showFriendsModal, setShowFriendsModal] = useState(false);
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
   const activeRoomRef = useRef(null);
 
-  // Keep ref in sync with state (for use in socket callbacks)
   useEffect(() => {
     activeRoomRef.current = activeRoom;
   }, [activeRoom]);
 
-  // ─── Request notification permission on mount ──────────
+  // Request browser notification permission
   useEffect(() => {
     requestNotificationPermission();
   }, []);
 
-  // ─── Fetch rooms on mount ─────────────────────────────
-  useEffect(() => {
-    const fetchRooms = async () => {
-      try {
-        const { data } = await api.get('/rooms');
-        setRooms(data.rooms || data);
-      } catch (err) {
-        console.error('Failed to fetch rooms:', err);
+  // Fetch initial rooms and friend requests
+  const fetchRooms = useCallback(async () => {
+    try {
+      const { data } = await api.get('/rooms');
+      const loadedRooms = data.rooms || data || [];
+      setRooms(loadedRooms);
+      // If no active room yet, pick the first public channel
+      if (!activeRoomRef.current && loadedRooms.length > 0) {
+        const defaultChannel = loadedRooms.find((r) => !r.isPrivate) || loadedRooms[0];
+        setActiveRoom(defaultChannel);
       }
-    };
-
-    const fetchUsers = async () => {
-      try {
-        const { data } = await api.get('/rooms/users');
-        setUsers(data.users || data);
-      } catch (err) {
-        console.error('Failed to fetch users:', err);
-      }
-    };
-
-    fetchRooms();
-    fetchUsers();
+    } catch (err) {
+      console.error('Failed to fetch rooms:', err);
+    }
   }, []);
 
-  // ─── Load message history when active room changes ─────
+  const fetchFriendRequests = useCallback(async () => {
+    try {
+      const { data } = await api.get('/friends/requests');
+      setPendingRequestsCount(data.incoming?.length || 0);
+    } catch (err) {
+      console.error('Failed to fetch friend requests:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRooms();
+    fetchFriendRequests();
+  }, [fetchRooms, fetchFriendRequests]);
+
+  // Load message history when active room changes
   useEffect(() => {
     if (!activeRoom) return;
 
@@ -97,7 +94,7 @@ export default function ChatPage() {
     setReplyTo(null);
   }, [activeRoom?._id]);
 
-  // ─── Join/leave rooms via socket ──────────────────────
+  // Join/leave room via socket
   useEffect(() => {
     if (!activeRoom || !isConnected) return;
 
@@ -108,27 +105,24 @@ export default function ChatPage() {
     };
   }, [activeRoom?._id, isConnected, emit]);
 
-  // ─── Socket event listeners ───────────────────────────
+  // Socket event listeners
   useEffect(() => {
     if (!isConnected) return;
 
-    // NEW MESSAGE — add to list if it's for the active room
     const handleNewMessage = (message) => {
       if (message.roomId === activeRoomRef.current?._id) {
         setMessages((prev) => [...prev, message]);
       }
 
-      // Browser notification for messages from other users
       if (message.senderId?._id !== user?._id) {
         const room = rooms.find((r) => r._id === message.roomId);
         notifyNewMessage(message, room?.name || 'Chat');
       }
     };
 
-    // TYPING — update typing users for active room
     const handleTyping = ({ userId, username, roomId, isTyping }) => {
       if (roomId !== activeRoomRef.current?._id) return;
-      if (userId === user?._id) return; // Don't show own typing
+      if (userId === user?._id) return;
 
       setTypingUsers((prev) => {
         if (isTyping) {
@@ -139,26 +133,39 @@ export default function ChatPage() {
       });
     };
 
-    // REACTION — update reactions on a message
     const handleReaction = ({ messageId, reactions }) => {
       setMessages((prev) =>
-        prev.map((msg) =>
-          msg._id === messageId ? { ...msg, reactions } : msg
-        )
+        prev.map((msg) => (msg._id === messageId ? { ...msg, reactions } : msg))
       );
     };
 
-    // MESSAGE DELETED — remove from list
     const handleMessageDeleted = ({ messageId }) => {
       setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
     };
 
-    // ROOM CREATED — add to room list
     const handleRoomCreated = (room) => {
       setRooms((prev) => {
         if (prev.find((r) => r._id === room._id)) return prev;
-        return [...prev, room];
+        return [room, ...prev];
       });
+    };
+
+    const handleNewFriendRequest = ({ recipientId }) => {
+      if (recipientId === user?._id) {
+        setPendingRequestsCount((prev) => prev + 1);
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('New Friend Request', {
+            body: 'You received a new friend request on ChatApp!',
+            icon: '/favicon.svg',
+          });
+        }
+      }
+    };
+
+    const handleFriendRequestAccepted = ({ user1, user2 }) => {
+      if (user1 === user?._id || user2 === user?._id) {
+        fetchFriendRequests();
+      }
     };
 
     const unsubs = [
@@ -167,15 +174,16 @@ export default function ChatPage() {
       on('reaction_updated', handleReaction),
       on('message_deleted', handleMessageDeleted),
       on('room_created', handleRoomCreated),
+      on('new_friend_request', handleNewFriendRequest),
+      on('friend_request_accepted', handleFriendRequestAccepted),
     ];
 
     return () => {
       unsubs.forEach((unsub) => unsub && unsub());
     };
-  }, [isConnected, on, off, user?._id, rooms]);
+  }, [isConnected, on, off, user?._id, rooms, fetchFriendRequests]);
 
-  // ─── Actions ──────────────────────────────────────────
-
+  // Actions
   const handleSelectRoom = useCallback((room) => {
     setActiveRoom(room);
   }, []);
@@ -184,7 +192,7 @@ export default function ChatPage() {
     try {
       const { data } = await api.post('/rooms', { name });
       const newRoom = data.room || data;
-      setRooms((prev) => [...prev, newRoom]);
+      setRooms((prev) => [newRoom, ...prev]);
       setActiveRoom(newRoom);
     } catch (err) {
       console.error('Failed to create room:', err);
@@ -192,19 +200,31 @@ export default function ChatPage() {
     }
   }, []);
 
-  const handleCreateDM = useCallback(async (targetUserId) => {
+  const handleCreateGroup = useCallback(async ({ name, description, memberIds }) => {
+    try {
+      const { data } = await api.post('/rooms/group', { name, description, memberIds });
+      const newGroup = data.room || data;
+      setRooms((prev) => [newGroup, ...prev]);
+      setActiveRoom(newGroup);
+    } catch (err) {
+      console.error('Failed to create group:', err);
+      throw err;
+    }
+  }, []);
+
+  const handleStartDMWithFriend = useCallback(async (targetUserId) => {
     try {
       const { data } = await api.post('/rooms/dm', { targetUserId });
       const dmRoom = data.room || data;
 
       setRooms((prev) => {
         if (prev.find((r) => r._id === dmRoom._id)) return prev;
-        return [...prev, dmRoom];
+        return [dmRoom, ...prev];
       });
       setActiveRoom(dmRoom);
     } catch (err) {
       console.error('Failed to create DM:', err);
-      alert(err.response?.data?.error || err.response?.data?.message || 'Failed to create DM');
+      alert(err.response?.data?.error || err.response?.data?.message || 'Failed to start conversation');
     }
   }, []);
 
@@ -261,8 +281,9 @@ export default function ChatPage() {
         activeRoomId={activeRoom?._id}
         onSelectRoom={handleSelectRoom}
         onCreateRoom={handleCreateRoom}
-        onCreateDM={handleCreateDM}
-        users={users}
+        onOpenFriendsModal={() => setShowFriendsModal(true)}
+        onOpenCreateGroupModal={() => setShowCreateGroupModal(true)}
+        pendingRequestsCount={pendingRequestsCount}
       />
       <ChatWindow
         room={activeRoom}
@@ -276,6 +297,23 @@ export default function ChatPage() {
         replyTo={replyTo}
         onCancelReply={handleCancelReply}
         onSearch={handleSearch}
+      />
+
+      {/* Friends & Requests Modal */}
+      <FriendsModal
+        isOpen={showFriendsModal}
+        onClose={() => {
+          setShowFriendsModal(false);
+          fetchFriendRequests();
+        }}
+        onStartDM={handleStartDMWithFriend}
+      />
+
+      {/* Create Multi-User Group Modal */}
+      <CreateGroupModal
+        isOpen={showCreateGroupModal}
+        onClose={() => setShowCreateGroupModal(false)}
+        onCreateGroup={handleCreateGroup}
       />
     </div>
   );

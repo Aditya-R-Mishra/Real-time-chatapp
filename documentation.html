@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<title>Realtime Chat App - Complete Project Documentation</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  @page {
+    size: A4;
+    margin: 16mm 14mm 16mm 14mm;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #1e293b;
+    background-color: #ffffff;
+    line-height: 1.5;
+    font-size: 13px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .doc-header {
+    background: linear-gradient(135deg, #3b82f6 0%, #6366f1 50%, #8b5cf6 100%);
+    color: white;
+    padding: 24px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
+  }
+
+  .doc-header h1 {
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
+  }
+
+  .doc-header p {
+    font-size: 13.5px;
+    opacity: 0.92;
+    margin-bottom: 12px;
+  }
+
+  .meta-pills {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .meta-pill {
+    background: rgba(255, 255, 255, 0.22);
+    backdrop-filter: blur(8px);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  h2 {
+    font-size: 17px;
+    font-weight: 700;
+    color: #0f172a;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 5px;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  h3 {
+    font-size: 14.5px;
+    font-weight: 600;
+    color: #1e293b;
+    margin-top: 14px;
+    margin-bottom: 6px;
+  }
+
+  p { margin-bottom: 8px; color: #334155; }
+
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 10px 0 16px 0;
+    font-size: 12px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+  }
+
+  th, td { padding: 8px 10px; text-align: left; vertical-align: top; }
+  th {
+    background-color: #f8fafc;
+    color: #334155;
+    font-weight: 600;
+    border-bottom: 1px solid #cbd5e1;
+    text-transform: uppercase;
+    font-size: 10.5px;
+    letter-spacing: 0.4px;
+  }
+
+  tr:nth-child(even) { background-color: #f8fafc; }
+  tr:not(:last-child) td { border-bottom: 1px solid #e2e8f0; }
+
+  td code, p code, li code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    background-color: #f1f5f9;
+    color: #475569;
+    padding: 2px 4px;
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .badge-pass { background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+  .badge-new { background-color: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; font-weight: 700; }
+
+  .card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #6366f1;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 10px 0;
+    font-size: 12px;
+  }
+
+  pre {
+    background: #0f172a;
+    color: #f8fafc;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    overflow-x: auto;
+    margin: 8px 0 12px 0;
+  }
+
+  ul, ol { margin-left: 18px; margin-bottom: 10px; }
+  li { margin-bottom: 4px; color: #334155; }
+
+  .page-break { page-break-before: always; }
+  .avoid-break { page-break-inside: avoid; }
+</style>
+</head>
+<body>
+
+  <div class="doc-header">
+    <h1>Realtime Chat Application</h1>
+    <p>Comprehensive System Documentation, Architecture & New Feature Walkthrough</p>
+    <div class="meta-pills">
+      <span class="meta-pill">MERN Stack</span>
+      <span class="meta-pill">Socket.io (WebSockets)</span>
+      <span class="meta-pill">Tailwind CSS + Vite</span>
+      <span class="meta-pill">JWT Dual-Token Security</span>
+      <span class="meta-pill">Photo & Video Sharing</span>
+      <span class="meta-pill">Friend Request System</span>
+      <span class="meta-pill">Multi-User Groups</span>
+    </div>
+  </div>
+
+  <h2>1. Project Overview & Architecture</h2>
+  <p>
+    Ye application ek <strong>Full-Stack Production-Ready Realtime Chat System</strong> hai. Decoupled frontend aur backend ke saath, ye <strong>HTTP REST APIs</strong> aur <strong>Bidirectional WebSockets (Socket.io)</strong> ke through aapas me interact karta hai.
+  </p>
+
+  <h2>2. Newly Implemented Features (Highlights)</h2>
+
+  <div class="card" style="border-left-color: #8b5cf6; background: #faf5ff;">
+    <span class="badge badge-new">NEW FEATURE</span> <strong>1. Photo & Video Sharing</strong><br>
+    • Users text messages ke saath-saath <strong>high-resolution Photos aur Videos</strong> share kar sakte hain.<br>
+    • <strong>Built-in Video Player:</strong> Chat bubbles me video player embed hota hai jisme play/pause, volume aur fullscreen controls hote hain.<br>
+    • <strong>Dual Storage Engine:</strong> Cloudinary configured hone par CDN use karta hai; agar Cloudinary keys na ho toh automatically local disk storage (<code>/uploads</code>) use karta hai. Photos aur Videos locally 100% chalte hain!
+  </div>
+
+  <div class="card" style="border-left-color: #3b82f6; background: #eff6ff;">
+    <span class="badge badge-new">NEW FEATURE</span> <strong>2. Friend Request System (Protected 1-on-1 DMs)</strong><br>
+    • Koi bhi user kisi anjaan user ko direct message (DM) nahi kar sakta jab tak dono <strong>Friends</strong> na ban jayein.<br>
+    • <strong>User Search:</strong> Username se users ko khojkar Friend Request bhejne ki suvidha.<br>
+    • <strong>Incoming & Outgoing Requests:</strong> Requests tab me incoming requests ko <em>Accept</em> ya <em>Decline</em> kar sakte hain, aur outgoing requests ko <em>Cancel</em> kar sakte hain.<br>
+    • <strong>Real-time Notification:</strong> Friend request aane par recipient ko instant socket alert aur notification badge milta hai.
+  </div>
+
+  <div class="card" style="border-left-color: #10b981; background: #ecfdf5;">
+    <span class="badge badge-new">NEW FEATURE</span> <strong>3. Multi-User Group Creation</strong><br>
+    • Users ek se zyada dosto ko select karke <strong>Custom Groups</strong> bana sakte hain.<br>
+    • Group Name, Description aur Multi-Select friends list ke through group create hota hai.<br>
+    • Group members ko instantly notification milti hai aur group sidebar me <code>👥</code> icon ke saath live show hota hai.
+  </div>
+
+  <div class="card" style="border-left-color: #f59e0b; background: #fffbeb;">
+    <span class="badge badge-new">NEW FEATURE</span> <strong>4. Handcrafted Light Mode & Dark Mode Switcher</strong><br>
+    • Seamless 1-click ☀️ / 🌙 theme switch jo Sidebar aur Auth dono jagah available hai.<br>
+    • <strong>Local Persistence:</strong> User ka chosen theme <code>localStorage</code> me save rehta hai.<br>
+    • <strong>Handcrafted Aesthetics:</strong> Crisp slate-navy typography, soft card borders, glassmorphic shadows, aur tailored light tokens taaki app bilkul authentic aur bespoke product lage.
+  </div>
+
+  <div class="page-break"></div>
+
+  <h2>3. Technology Breakdown: Kya, Kyu, Kaise aur Kaha</h2>
+
+  <h3>Backend Architecture (<code>server/</code>)</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Module / File</th>
+        <th>Kya Use Kiya?</th>
+        <th>Kyu Use Kiya?</th>
+        <th>Kaise Kaam Karta Hai?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>models/User.model.js</code></td>
+        <td>Mongoose Schema + <code>friends</code> array</td>
+        <td>User identity, password hashing (bcrypt), aur friends relationship store karne ke liye.</td>
+        <td>Pre-save hook me 12 salt rounds se hashing. <code>friends</code> array me accepted friend IDs store hoti hain.</td>
+      </tr>
+      <tr>
+        <td><code>models/FriendRequest.model.js</code></td>
+        <td>Compound Index Schema</td>
+        <td>Pending, Accepted, aur Rejected requests manage karne ke liye.</td>
+        <td>Unique compound index <code>{ sender: 1, recipient: 1 }</code> duplicate requests rokta hai.</td>
+      </tr>
+      <tr>
+        <td><code>models/Room.model.js</code></td>
+        <td><code>isGroup</code>, <code>members</code>, <code>isPrivate</code></td>
+        <td>Channels, 1-on-1 DMs, aur Multi-user Groups ko ek hi collection me support karne ke liye.</td>
+        <td>Channels: public. DMs: private (2 members). Groups: private (multiple selected members).</td>
+      </tr>
+      <tr>
+        <td><code>models/Message.model.js</code></td>
+        <td><code>type: 'image' | 'video' | 'file'</code></td>
+        <td>Multimedia chat messages aur replies store karne ke liye.</td>
+        <td><code>fileUrl</code>, <code>fileType</code>, <code>fileName</code> store karta hai. Compound index fast loading deta hai.</td>
+      </tr>
+      <tr>
+        <td><code>controllers/friend.controller.js</code></td>
+        <td>Friend Request Logic</td>
+        <td>Friend requests send, accept, reject, list aur user discovery ke liye.</td>
+        <td>Accept hone par dono users ko ek doosre ke <code>friends</code> array me add karta hai aur socket event emit karta hai.</td>
+      </tr>
+      <tr>
+        <td><code>middleware/upload.middleware.js</code></td>
+        <td>Multer + Dual Storage</td>
+        <td>Photos aur videos ko 50MB tak upload karne ke liye.</td>
+        <td>Cloudinary keys ho toh Cloudinary, warna local <code>public/uploads</code> me save karke static serve karta hai.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Frontend Architecture (<code>client/</code>)</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Component / File</th>
+        <th>Kya Kaam Karta Hai?</th>
+        <th>Kyu Zaruri Hai?</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>components/chat/FriendsModal.jsx</code></td>
+        <td>Friends list, Incoming/Outgoing requests, User search & Add Friend tab.</td>
+        <td>Users ko dosto se connect karne aur unke saath private chat start karne ke liye.</td>
+      </tr>
+      <tr>
+        <td><code>components/chat/CreateGroupModal.jsx</code></td>
+        <td>Group name, description, multi-select checkboxes for friends.</td>
+        <td>Ek sath multiple friends ka group chat room banane ke liye.</td>
+      </tr>
+      <tr>
+        <td><code>components/chat/MessageBubble.jsx</code></td>
+        <td>Photos, Videos (HTML5 Video Player), Text, Emojis, Replies display karta hai.</td>
+        <td>Video aur photo playback bina page reload kiye chat ke andar direct render karta hai.</td>
+      </tr>
+      <tr>
+        <td><code>components/chat/MessageInput.jsx</code></td>
+        <td>File picker, attachment preview thumbnail/badge, caption support, debounced typing.</td>
+        <td>Send karne se pehle attachment ka preview dikhata hai aur send hone par broadcast karta hai.</td>
+      </tr>
+      <tr>
+        <td><code>components/layout/Sidebar.jsx</code></td>
+        <td>Channels, Groups, Direct Messages, aur Friends button with live request badge.</td>
+        <td>Sleek dark-mode navigation structure jisme alag-alag conversations organized rehti hain.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4. Running & Testing Instructions</h2>
+  <ol>
+    <li><strong>Backend:</strong> <code>cd server &amp;&amp; npm run dev</code> (Port 5000)</li>
+    <li><strong>Frontend:</strong> <code>cd client &amp;&amp; npm run dev</code> (Port 5173)</li>
+    <li><strong>Testing Steps:</strong>
+      <ul>
+        <li>Browser me <code>http://localhost:5173</code> par do alag-alag accounts register karein (ek normal tab me, ek incognito me).</li>
+        <li><strong>Friends &amp; Requests</strong> button par click karke dusre user ko Friend Request bhejein aur dusre tab me <em>Accept</em> karein.</li>
+        <li>Accept hone ke baad <strong>Direct Message</strong> start karein, photos aur videos upload karke live preview test karein!</li>
+        <li><strong>+ Groups</strong> par click karke group ka name dalein aur apne dost ko add karke Multi-User Group create karein!</li>
+      </ul>
+    </li>
+  </ol>
+</body>
+</html>

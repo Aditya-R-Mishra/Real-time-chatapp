@@ -22,6 +22,7 @@ const http = require('http');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const path = require('path');
 require('dotenv').config();
 
 // Import route handlers
@@ -29,6 +30,7 @@ const authRoutes = require('./routes/auth.routes');
 const roomRoutes = require('./routes/room.routes');
 const uploadRoutes = require('./routes/upload.routes');
 const adminRoutes = require('./routes/admin.routes');
+const friendRoutes = require('./routes/friend.routes');
 
 // Import Socket.io initializer
 const initSocket = require('./socket');
@@ -59,12 +61,16 @@ app.use(express.json());
 // We use this for refresh tokens (stored as HTTP-only cookies)
 app.use(cookieParser());
 
+// Static uploads directory (for local file/video/image uploads)
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
+
 // ─── API ROUTES ──────────────────────────────────────────────
 // Each route group handles a different "section" of the API.
 // The first argument is the URL prefix.
 
 app.use('/api/auth', authRoutes);      // /api/auth/login, /register, etc.
 app.use('/api/rooms', roomRoutes);     // /api/rooms, /api/rooms/:id, etc.
+app.use('/api/friends', friendRoutes); // /api/friends (friend requests & friends list)
 app.use('/api/upload', uploadRoutes);  // /api/upload (file uploads)
 app.use('/api/admin', adminRoutes);    // /api/admin/users, /stats, etc.
 
@@ -72,6 +78,20 @@ app.use('/api/admin', adminRoutes);    // /api/admin/users, /stats, etc.
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// ─── SERVE FRONTEND IN PRODUCTION ────────────────────────────
+const fs = require('fs');
+const clientDistPath = path.join(__dirname, '../client/dist');
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+  app.use((req, res, next) => {
+    if (req.method !== 'GET') return next();
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads') || req.path.startsWith('/socket.io')) {
+      return next();
+    }
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+}
 
 // ─── SOCKET.IO ───────────────────────────────────────────────
 // Initialize Socket.io and attach it to the HTTP server.
